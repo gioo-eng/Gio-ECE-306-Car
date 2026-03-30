@@ -19,7 +19,7 @@ float error = 0, previousError = 0, proportional = 0, derivative = 0;
 
 #define BASE_SPEED 25000
 #define MAX_SPEED 37000
-#define MIN_SPEED 13000
+#define MIN_SPEED 130000000
 
 
 
