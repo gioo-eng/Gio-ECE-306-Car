@@ -42,7 +42,7 @@ void InitSerialPCLoopback(void)
 
     //  115200 baud @ 8MHz (CORRECT)
     UCA1BRW = 4;
-    UCA1MCTLW = (0x55 << 8) | UCOS16 | (1 << 4);
+    UCA1MCTLW = (0x55 << 8) | UCOS16 | (5 << 4);
 
     // Pins: P4.2 RX, P4.3 TX
     P4SEL0 |= (BIT2 | BIT3);
