@@ -94,7 +94,7 @@ __interrupt void Timer_B0_ISR(void) {
     P2OUT |= IR_LED;
     Time_Sequence++;
 tick_flag = 1;
-   
+   Serial_TimerTick();
     if (system_running) {
         tick_counter++;
         if (tick_counter >= 5) {

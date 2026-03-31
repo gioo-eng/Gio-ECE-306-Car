@@ -142,6 +142,9 @@ if (sw2_pressed)
     sw2_pressed = 0;
     Serial_TransmitBuffer();
 }
+    Serial_BaudProcess();
+    SerialProcess();
+
 
 
     if (system_running) {

@@ -35,4 +35,5 @@ void Serial_setBaud(SerialBaud baud);
 void Serial_setMode(SerialMode mode);
 void SerialProcess(void);
 void Serial_TransmitBuffer(void);
+extern volatile uint8_t transmit_display_timer;
 #endif
