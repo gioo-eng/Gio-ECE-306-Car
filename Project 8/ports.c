@@ -87,7 +87,7 @@ P1DIR &= ~UCA0TXD;
  P2OUT |= SW2; // Configure pullup resistor
  P2DIR &= ~SW2; // Direction = input
  P2REN |= SW2; // Enable pullup resistor
-
+ P2IE |= SW2; //enable interrupt
 
  P2SEL0 &= ~IOT_RUN_RED; // IOT_RUN_CPU GPIO operation
  P2SEL1 &= ~IOT_RUN_RED; // IOT_RUN_CPU GPIO operation

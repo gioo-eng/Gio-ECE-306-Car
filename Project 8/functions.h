@@ -7,7 +7,7 @@
 //  Built with IAR Embedded Workbench Version: V4.10A/W32 (5.40.1)
 //******************************************************************************
 // Functions
-
+#include <stdint.h>  
 // Main
 void main(void);
 
@@ -25,7 +25,7 @@ unsigned int Get_ADC_Result(unsigned int channel);
 void enable_interrupts(void);
 __interrupt void Timer0_B0_ISR(void);
 __interrupt void switch_interrupt(void);
-
+extern volatile uint8_t sw2_pressed;
 
 // Clocks
 void Init_Clocks(void);

@@ -32,6 +32,7 @@ extern volatile int system_running;
 extern volatile int start_countdown;
 extern volatile int pid_ready_flag;
 extern volatile int WHITE;
+extern volatile uint8_t sw2_pressed;
 
 void check_motor_safety(void) {
     if ((LEFT_FORWARD_SPEED > WHEEL_OFF) && (LEFT_REVERSE_SPEED > WHEEL_OFF)) {
@@ -68,19 +69,24 @@ void main(void){
 // previously configured port settings
 
   Init_Ports();                        // Initialize Ports
-  Init_Clocks();                       // Initialize Clock System
+  Init_Clocks();   
+  Init_Serial();                      // Initialize Clock System
   Init_Conditions();                   // Initialize Variables and Initial Conditions
   Init_Timers();                       // Initialize Timers
   Init_LCD();
   init_adc();
-  Init_Serial();
   __enable_interrupt();
+
+
   // Initialize LCD
 //P2OUT &= ~RESET_LCD;
   // Place the contents of what you want on the display, in between the quotes
 // Limited to 10 characters per line
-
+  
   turn_off_all();
+
+
+
 
 
   Time_Sequence = 0;
@@ -129,6 +135,14 @@ void main(void){
         cycle_time++;
         time_change = 1;
     }
+
+
+if (sw2_pressed)
+{
+    sw2_pressed = 0;
+    Serial_TransmitBuffer();
+}
+
 
     if (system_running) {
         switch(robot_state) {

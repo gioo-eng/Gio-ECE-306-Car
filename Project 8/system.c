@@ -29,12 +29,25 @@ volatile int sw1_mode = 0;
 volatile unsigned char baud_display_active = 0;
 char baud_display_line[11] = "          ";
 extern SerialBaud serialBaud;
-// From display.c
-extern volatile unsigned char baud_display_active;
 volatile unsigned int baud_timer = 0;
+
 // Pending baud change — set in ISR, handled in main loop
 volatile SerialBaud pending_baud = 0;
 volatile unsigned char baud_change_pending = 0;
+
+// SW2 transmit flag — set in ISR, handled in main loop
+volatile uint8_t sw2_pressed = 0;
+
+#pragma vector=PORT2_VECTOR
+__interrupt void Port2_ISR(void)
+{
+    if (P2IFG & SW2)
+    {
+        P2IFG &= ~SW2;      // clear interrupt flag
+        sw2_pressed = 1;    // set flag, handled in main loop
+    }
+}
+
 
 #pragma vector=PORT4_VECTOR
 __interrupt void press_button(void){
@@ -53,6 +66,8 @@ __interrupt void press_button(void){
             baud_change_pending = 1;
         }
     }
+
+    
 
 // Call this from the main loop — applies any pending baud rate change safely
 void Serial_BaudProcess(void)
