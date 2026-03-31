@@ -9,6 +9,15 @@
                 "name": "Project 8",
                 "resourceId": "/Project 8"
             }
+        },
+        {
+            "name": "hmwk9",
+            "type": "ccs-debug",
+            "request": "launch",
+            "projectInfo": {
+                "name": "hmwk9",
+                "resourceId": "/hmwk9"
+            }
         }
     ]
 }

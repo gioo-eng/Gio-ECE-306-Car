@@ -4,18 +4,17 @@
 #include "msp430.h"
 #include <stdint.h>
 
-#define BUFFER_SIZE 256 // power of 2
+#define BUFFER_SIZE 256
 #define BUFFER_MASK (BUFFER_SIZE - 1)
 
 typedef struct {
-    uint8_t buffer[BUFFER_SIZE];
-    uint8_t head;  // Write index
-    uint8_t tail;  // Read index
+    volatile uint8_t buffer[BUFFER_SIZE];
+    volatile uint8_t head;
+    volatile uint8_t tail;
 } RingBuffer;
 
-
 void rb_init(RingBuffer *rb);
-inline void rb_push(RingBuffer *rb, uint8_t data);
-inline uint8_t rb_pop(RingBuffer *rb, uint8_t *dest);
+uint8_t rb_push(RingBuffer *rb, uint8_t data);
+uint8_t rb_pop(RingBuffer *rb, uint8_t *dest);
 
-#endif //RINGBUFFER_H
+#endif

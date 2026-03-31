@@ -7,7 +7,7 @@
 
 #ifndef TIMERS_H_
 #define TIMERS_H_
-
+#include <stdint.h>  
 
 void Init_Timer_B0(void);
 void Init_Timer_B1(void);
@@ -24,6 +24,7 @@ int is_timer_running(unsigned int duration_ticks);
 #define TICKS_start (3)
 
 
+extern volatile uint8_t tick_flag;
 
 
 

@@ -2,177 +2,71 @@
 #include "macros.h"
 #include <string.h>
 
-// Declared in display.c
-extern volatile unsigned char serial_display_active;
-extern char serial_display_line[11];
+RingBuffer PCTXBUF;
+RingBuffer PCRXBUF;
 
-RingBuffer PCTXBUF = {{0}, 0, 0};
-RingBuffer PCRXBUF = {{0}, 0, 0};
 SerialMode serialMode = SERIAL_MODE_PC_LOOPBACK;
 SerialBaud serialBaud = SERIAL_BAUD_115200;
+#define INPUT_BUFFER_SIZE 32
 
-// Buffer to accumulate incoming characters before writing to the LCD.
-// The LCD line is 10 characters wide, so we keep 10 chars + null terminator.
+static char input_buffer[INPUT_BUFFER_SIZE];
+static uint8_t input_pos = 0;
+
+volatile uint16_t input_timer = 0;     // counts time
+volatile uint8_t input_active = 0;     // flag: user typing
+
+// --- LCD Display ---
+volatile unsigned char serial_display_active = 0;
+char serial_display_line[11] = "          ";
+
 #define LCD_LINE_WIDTH  (10)
-static char serial_lcd_buf[LCD_LINE_WIDTH + 1] = "          ";
+static char serial_lcd_buf[LCD_LINE_WIDTH] = "          ";
 static uint8_t serial_lcd_pos = 0;
 
-// Drains PCRXBUF and writes incoming characters to display_line[0].
-// A newline ('\n') or carriage return ('\r') clears the line and resets the
-// cursor. Any other character is appended at the current cursor position.
-// Once the line is full, characters scroll left to make room.
-// display_changed is set so Display_Process() picks up the update.
-static void Serial_DrainBufferToLCD(void)
-{
-    uint8_t rxByte;
-
-    while (rb_pop(&PCRXBUF, &rxByte))
-    {
-        if (rxByte == '\n' || rxByte == '\r')
-        {
-            // Clear line and reset cursor on newline / carriage return
-            memset(serial_lcd_buf, ' ', LCD_LINE_WIDTH);
-            serial_lcd_buf[LCD_LINE_WIDTH] = '\0';
-            serial_lcd_pos = 0;
-            memcpy(serial_display_line, serial_lcd_buf, LCD_LINE_WIDTH);
-        }
-        else
-        {
-            if (serial_lcd_pos < LCD_LINE_WIDTH)
-            {
-                serial_lcd_buf[serial_lcd_pos++] = (char)rxByte;
-            }
-            else
-            {
-                // Line full — scroll left and append new character at the end
-                memmove(serial_lcd_buf, serial_lcd_buf + 1, LCD_LINE_WIDTH - 1);
-                serial_lcd_buf[LCD_LINE_WIDTH - 1] = (char)rxByte;
-            }
-
-            // Copy into staging buffer and tell display.c to show it on line 0
-            memcpy(serial_display_line, serial_lcd_buf, LCD_LINE_WIDTH);
-            serial_display_active = 1;
-        }
-    }
-}
-
-static void Serial_DrainBufferToUart(uint16_t baseAddress, RingBuffer *buffer)
+// --- UART TX Helper ---
+static void Serial_DrainBufferToUart1(RingBuffer *buffer)
 {
     uint8_t txByte;
 
-    while (EUSCI_A_UART_getInterruptStatus(baseAddress, EUSCI_A_UART_TRANSMIT_INTERRUPT_FLAG))
+    while ((UCA1IFG & UCTXIFG) && rb_pop(buffer, &txByte))
     {
-        if (!rb_pop(buffer, &txByte))
-        {
-            break;
-        }
-
-        EUSCI_A_UART_transmitData(baseAddress, txByte);
+        UCA1TXBUF = txByte;
     }
 }
 
-static void Serial_ReadUartToBuffer(uint16_t baseAddress, RingBuffer *buffer)
-{
-    while (EUSCI_A_UART_getInterruptStatus(baseAddress, EUSCI_A_UART_RECEIVE_INTERRUPT_FLAG))
-    {
-        if (EUSCI_A_UART_queryStatusFlags(baseAddress, EUSCI_A_UART_RECEIVE_ERROR))
-        {
-            (void)EUSCI_A_UART_receiveData(baseAddress);
-            continue;
-        }
-
-        rb_push(buffer, EUSCI_A_UART_receiveData(baseAddress));
-    }
-}
-
-static void Serial_FillUartBaudConfig(EUSCI_A_UART_initParam *cfg, SerialBaud baud)
-{
-    cfg->selectClockSource = EUSCI_A_UART_CLOCKSOURCE_SMCLK;
-    cfg->parity = EUSCI_A_UART_NO_PARITY;
-    cfg->msborLsbFirst = EUSCI_A_UART_LSB_FIRST;
-    cfg->numberofStopBits = EUSCI_A_UART_ONE_STOP_BIT;
-    cfg->uartMode = EUSCI_A_UART_MODE;
-    cfg->overSampling = EUSCI_A_UART_OVERSAMPLING_BAUDRATE_GENERATION;
-
-    if (baud == SERIAL_BAUD_460800)
-    {
-        // 8MHz / 460800
-        cfg->clockPrescalar = 17;
-        cfg->firstModReg = 0;
-        cfg->secondModReg = 74;
-        cfg->overSampling = 0;
-    }
-    else
-    {
-        // 8MHz / 115200
-        cfg->clockPrescalar = 4;
-        cfg->firstModReg = 5;
-        cfg->secondModReg = 85;
-        cfg->overSampling = 1;
-    }
-}
-
-static void Serial_ConfigModule(uint16_t baseAddress,
-                                uint8_t gpioPort,
-                                uint16_t rxPin,
-                                uint16_t txPin,
-                                SerialBaud baud)
-{
-    EUSCI_A_UART_initParam cfg;
-
-    Serial_FillUartBaudConfig(&cfg, baud);
-
-    GPIO_setAsPeripheralModuleFunctionInputPin(gpioPort, rxPin, GPIO_PRIMARY_MODULE_FUNCTION);
-    GPIO_setAsPeripheralModuleFunctionOutputPin(gpioPort, txPin, GPIO_PRIMARY_MODULE_FUNCTION);
-
-    EUSCI_A_UART_disable(baseAddress);
-    if (EUSCI_A_UART_init(baseAddress, &cfg) == STATUS_FAIL)
-    {
-        return;
-    }
-
-    EUSCI_A_UART_clearInterrupt(baseAddress,
-                                EUSCI_A_UART_RECEIVE_INTERRUPT_FLAG |
-                                    EUSCI_A_UART_TRANSMIT_INTERRUPT_FLAG);
-#if SERIAL_ONLY_BUILD
-    EUSCI_A_UART_disableInterrupt(baseAddress,
-                                  EUSCI_A_UART_RECEIVE_INTERRUPT |
-                                      EUSCI_A_UART_TRANSMIT_INTERRUPT);
-#else
-    EUSCI_A_UART_disableInterrupt(baseAddress, EUSCI_A_UART_TRANSMIT_INTERRUPT);
-    EUSCI_A_UART_enableInterrupt(baseAddress, EUSCI_A_UART_RECEIVE_INTERRUPT);
-#endif
-    EUSCI_A_UART_enable(baseAddress);
-}
-
-void InitSerialIOT(void)
-{
-    Serial_ConfigModule(EUSCI_A0_BASE, GPIO_PORT_P1, GPIO_PIN6, GPIO_PIN7, serialBaud);
-}
-
+// --- UART INIT (PC - UCA1) ---
 void InitSerialPCLoopback(void)
 {
-    Serial_ConfigModule(EUSCI_A1_BASE, GPIO_PORT_P4, GPIO_PIN2, GPIO_PIN3, serialBaud);
+    UCA1CTLW0 = UCSWRST;                  // Hold in reset
+    UCA1CTLW0 |= UCSSEL__SMCLK;           // SMCLK = 8 MHz
+
+    //  115200 baud @ 8MHz (CORRECT)
+    UCA1BRW = 4;
+    UCA1MCTLW = (0x55 << 8) | UCOS16 | (1 << 4);
+
+    // Pins: P4.2 RX, P4.3 TX
+    P4SEL0 |= (BIT2 | BIT3);
+    P4SEL1 &= ~(BIT2 | BIT3);
+
+    UCA1CTLW0 &= ~UCSWRST;                // Release reset
+
+    UCA1IFG &= ~(UCRXIFG | UCTXIFG);
+    UCA1IE |= UCRXIE;                     // Enable RX interrupt
 }
 
+// --- INIT WRAPPER ---
 void Init_Serial(void)
 {
     rb_init(&PCTXBUF);
     rb_init(&PCRXBUF);
 
-    // Clear the LCD line buffer on init
     memset(serial_lcd_buf, ' ', LCD_LINE_WIDTH);
-    serial_lcd_buf[LCD_LINE_WIDTH] = '\0';
     serial_lcd_pos = 0;
-    
 
-    if (serialMode == SERIAL_MODE_PC_LOOPBACK)
-    {
-        InitSerialPCLoopback();
-    }
-    InitSerialIOT();
+    InitSerialPCLoopback();
 }
 
+// --- BAUD CHANGE ---
 void Serial_setBaud(SerialBaud baud)
 {
     serialBaud = baud;
@@ -184,79 +78,108 @@ void Serial_setMode(SerialMode mode)
     serialMode = mode;
 }
 
+// --- MAIN PROCESS ---
 void SerialProcess(void)
 {
-#if SERIAL_ONLY_BUILD
-    if (serialMode == SERIAL_MODE_PC_LOOPBACK)
-    {
-        Serial_ReadUartToBuffer(EUSCI_A1_BASE, &PCRXBUF);
-    }
-    else
-    {
-        Serial_ReadUartToBuffer(EUSCI_A0_BASE, &PCRXBUF);
-    }
-#endif
+    uint8_t byte;
 
-    // Echo buffered bytes back to PC
-    if (serialMode == SERIAL_MODE_PC_LOOPBACK)
+    while (rb_pop(&PCRXBUF, &byte))
     {
-        Serial_DrainBufferToUart(EUSCI_A1_BASE, &PCTXBUF);
-    }
+        // Echo back to PC
+        rb_push(&PCTXBUF, byte);
 
-    // Display received bytes on LCD line 0
-    Serial_DrainBufferToLCD();
-}
+        // Reset timer on every keypress
+        input_timer = 0;
+        input_active = 1;
 
-#pragma vector=EUSCI_A0_VECTOR
-__interrupt void eUSCI_A0_ISR(void)
-{
-    uint8_t rxByte;
-
-    switch (__even_in_range(UCA0IV, 0x08))
-    {
-    case 0:
-        break;
-    case 2: // RXIFG
-        if (EUSCI_A_UART_queryStatusFlags(EUSCI_A0_BASE, EUSCI_A_UART_RECEIVE_ERROR))
+        // Handle ENTER  force immediate display
+        if (byte == '\r' || byte == '\n')
         {
-            (void)EUSCI_A_UART_receiveData(EUSCI_A0_BASE);
-            break;
+            serial_display_active = 1;
+
+            memset(serial_display_line, ' ', 10);
+            memcpy(serial_display_line, input_buffer,
+                   (input_pos < 10) ? input_pos : 10);
+
+            input_pos = 0;
+            memset(input_buffer, 0, INPUT_BUFFER_SIZE);
+
+            input_active = 0;
+            input_timer = 0;
         }
-        rxByte = EUSCI_A_UART_receiveData(EUSCI_A0_BASE);
-        rb_push(&PCRXBUF, rxByte);
-        break;
-    case 4: // TXIFG
-        EUSCI_A_UART_disableInterrupt(EUSCI_A0_BASE, EUSCI_A_UART_TRANSMIT_INTERRUPT);
-        break;
-    default:
-        break;
+        else
+        {
+            // Store character
+            if (input_pos < INPUT_BUFFER_SIZE - 1)
+            {
+                input_buffer[input_pos++] = byte;
+            }
+        }
     }
+
+    Serial_DrainBufferToUart1(&PCTXBUF);
 }
 
+// --- ISR ---
 #pragma vector=EUSCI_A1_VECTOR
 __interrupt void eUSCI_A1_ISR(void)
 {
     uint8_t rxByte;
 
-    switch (__even_in_range(UCA1IV, 0x08))
+    switch (__even_in_range(UCA1IV, USCI_UART_UCTXCPTIFG))
     {
-    case 0:
-        break;
-    case 2: // RXIFG
-        if (EUSCI_A_UART_queryStatusFlags(EUSCI_A1_BASE, EUSCI_A_UART_RECEIVE_ERROR))
+    case USCI_UART_UCRXIFG:
+
+        if (UCA1STATW & (UCOE | UCPE | UCFE))
         {
-            (void)EUSCI_A_UART_receiveData(EUSCI_A1_BASE);
+            (void)UCA1RXBUF; // Clear error
             break;
         }
-        rxByte = EUSCI_A_UART_receiveData(EUSCI_A1_BASE);
-        rb_push(&PCRXBUF, rxByte);  // Goes to LCD via SerialProcess
-        rb_push(&PCTXBUF, rxByte);  // Echo back to PC
-        EUSCI_A_UART_enableInterrupt(EUSCI_A1_BASE, EUSCI_A_UART_TRANSMIT_INTERRUPT);
+
+        rxByte = UCA1RXBUF;
+
+        rb_push(&PCRXBUF, rxByte);
+
+        UCA1IE |= UCTXIE; // Enable TX interrupt
         break;
-    case 4: // TXIFG
-        EUSCI_A_UART_disableInterrupt(EUSCI_A1_BASE, EUSCI_A_UART_TRANSMIT_INTERRUPT);
+
+    case USCI_UART_UCTXIFG:
+
+        if (rb_pop(&PCTXBUF, &rxByte))
+        {
+            UCA1TXBUF = rxByte;
+        }
+        else
+        {
+            UCA1IE &= ~UCTXIE;
+        }
         break;
+
     default:
         break;
+    }
+}
+
+void Serial_TimerTick(void)
+{
+    if (input_active)
+    {
+        input_timer++;
+
+        // 5 seconds (adjust based on your timer rate)
+        if (input_timer >= 25)
+        {
+            input_active = 0;
+            input_timer = 0;
+
+            serial_display_active = 1;
+
+            memset(serial_display_line, ' ', 10);
+            memcpy(serial_display_line, input_buffer,
+                   (input_pos < 10) ? input_pos : 10);
+
+            input_pos = 0;
+            memset(input_buffer, 0, INPUT_BUFFER_SIZE);
+        }
     }
 }

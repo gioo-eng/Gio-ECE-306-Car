@@ -14,18 +14,18 @@
 extern volatile int timer_minutes;
 extern volatile int timer_seconds;
 
-// Written by serial.c — always shown on line 0
-volatile unsigned char serial_display_active = 0;
-char serial_display_line[11] = "          ";
+// --- EXTERN VARIABLES (Defined in serial.c) ---
+extern volatile unsigned char serial_display_active;
+extern char serial_display_line[11];
 
-// Written by system.c on baud change — shown on line 1
-volatile unsigned char baud_display_active = 0;
-char baud_display_line[11] = "          ";
+// --- EXTERN VARIABLES (Defined in system.c) ---
+extern volatile unsigned char baud_display_active;
+extern char baud_display_line[11];
 
 void Update_Project_Display(int left_val, int right_val, int thumb) {
     char left_temp[5];
 
-    // Line 0: serial input if active, otherwise clock
+    // --- Line 0: Serial input from PC (if active), otherwise Clock ---
     if (serial_display_active) {
         memcpy(display_line[0], serial_display_line, 10);
         display_line[0][10] = '\0';
@@ -37,11 +37,10 @@ void Update_Project_Display(int left_val, int right_val, int thumb) {
         }
     }
 
-    // Line 1: baud rate if changed, otherwise robot state
+    // --- Line 1: Baud rate (from SW1), otherwise Robot State ---
     if (baud_display_active) {
         memcpy(display_line[1], baud_display_line, 10);
         display_line[1][10] = '\0';
-        baud_display_active = 0;
     } else {
         switch(robot_state) {
             case STATE_COUNTDOWN:     sprintf(display_line[1], " COUNT    "); break;
@@ -54,22 +53,20 @@ void Update_Project_Display(int left_val, int right_val, int thumb) {
         }
     }
 
-    // Line 2: IR sensor values
-    HEXtoBCD(left_val);
-    strcpy(left_temp, adc_char);
-    HEXtoBCD(right_val);
-    sprintf(display_line[2], "L%s R%s ", left_temp + 1, adc_char + 1);
 
-    // Line 3: thumb wheel
-    HEXtoBCD(thumb);
-    sprintf(display_line[3], "TW: %s  W ", adc_char + 1);
 
+    // Flag that the display buffers have been updated
     display_changed = 1;
 }
 
 void Display_Process(void) {
     if (update_display) {
         update_display = 0;
-        Display_Update(0, 0, 0, 0);
+
+        // Prevent SPI bus saturation and screen flicker
+        if (display_changed) {
+            display_changed = 0; // Clear flag before updating
+            Display_Update(0, 0, 0, 0);
+        }
     }
 }

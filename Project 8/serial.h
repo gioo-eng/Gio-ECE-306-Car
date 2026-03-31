@@ -3,8 +3,8 @@
 
 #include "msp430.h"
 #include "ports.h"
-#include <driverlib.h>
 #include "ringbuffer.h"
+void Serial_TimerTick(void);
 
 extern RingBuffer PCTXBUF;
 extern RingBuffer PCRXBUF;
@@ -19,19 +19,15 @@ typedef enum serial_baud {
     SERIAL_BAUD_460800 = 460800
 } SerialBaud;
 
-void InitSerialPCLoopback(void); //Initializes UCA1 to be used for UART
-
-void InitSerialIOT(void); //Initializes UCA0 to be used for UART
-
+void InitSerialPCLoopback(void);
 void Init_Serial(void);
 
 void Serial_setBaud(SerialBaud baud);
-
 void Serial_setMode(SerialMode mode);
-
 void SerialProcess(void);
 
-extern SerialMode serialMode;
-extern SerialBaud serialBaud;
+// LCD interface
+extern volatile unsigned char serial_display_active;
+extern char serial_display_line[11];
 
-#endif //SERIAL_H
+#endif

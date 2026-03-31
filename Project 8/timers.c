@@ -23,6 +23,7 @@ void Init_Timers(void) {
 
 }
 
+volatile uint8_t tick_flag = 0;
 
 void Init_Timer_B0(void) {
     //--------------------------------------------------------------------------

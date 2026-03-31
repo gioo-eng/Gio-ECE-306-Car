@@ -22,8 +22,6 @@
 
 
 
-
-
 // Function Prototypes
 void main(void);
 void Init_Conditions(void);
