@@ -85,7 +85,8 @@ void main(void){
   
   turn_off_all();
 
-
+ms_delay(1000);           
+P3OUT |= IOT_EN;
 
 
 

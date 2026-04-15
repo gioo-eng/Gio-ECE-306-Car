@@ -11,12 +11,30 @@
             }
         },
         {
-            "name": "hmwk9",
+            "name": "HMWK 9",
             "type": "ccs-debug",
             "request": "launch",
             "projectInfo": {
-                "name": "hmwk9",
-                "resourceId": "/hmwk9"
+                "name": "HMWK 9",
+                "resourceId": "/HMWK 9"
+            }
+        },
+        {
+            "name": "Project 9",
+            "type": "ccs-debug",
+            "request": "launch",
+            "projectInfo": {
+                "name": "Project 9",
+                "resourceId": "/Project 9"
+            }
+        },
+        {
+            "name": "Project 10",
+            "type": "ccs-debug",
+            "request": "launch",
+            "projectInfo": {
+                "name": "Project 10",
+                "resourceId": "/Project 10"
             }
         }
     ]

@@ -91,7 +91,10 @@ typedef enum
     ESP_DIR_FORWARD = 'F',
     ESP_DIR_REVERSE = 'B',
     ESP_DIR_RIGHT   = 'R',
-    ESP_DIR_LEFT    = 'L'
+    ESP_DIR_LEFT    = 'L',
+    ESP_DIR_TURN    = 'T',
+    ESP_DIR_ALIGN   = 'A',
+    ESP_DIR_PID  = 'P'
 } ESPDirection;
 
 typedef struct

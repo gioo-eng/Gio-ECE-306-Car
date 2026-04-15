@@ -1,11 +1,3 @@
-//------------------------------------------------------------------------------
-//
-//  Description: This file contains the System Configurations
-//
-//  Jim Carlson
-//  Jan 2016
-//  Built with IAR Embedded Workbench Version: V7.3.1.3987 (6.40.1)
-//------------------------------------------------------------------------------
 #include  "functions.h"
 #include  "msp430.h"
 #include  "macros.h"
@@ -13,7 +5,7 @@
 #include "timers.h"
 #include "LCD.h"
 #include "motors.h"
-#include "serial.h"
+#include "esp.h"
 
 extern volatile int condition;
 extern volatile int start_timed_turn;
@@ -28,10 +20,8 @@ extern volatile int pid_ready_flag;
 volatile int sw1_mode = 0;
 volatile unsigned char baud_display_active = 0;
 char baud_display_line[11] = "          ";
-extern SerialBaud serialBaud;
 volatile unsigned int baud_timer = 0;
 
-// for display
 extern volatile int menu_mode;
 extern volatile int current_selection;
 extern volatile int cal_entry_thumb;
@@ -41,62 +31,48 @@ extern volatile int last_right;
 extern volatile int WHITE;
 extern volatile int BLACK;
 
-// Pending baud change — set in ISR, handled in main loop
-volatile SerialBaud pending_baud = 0;
 volatile unsigned char baud_change_pending = 0;
 
-// SW2 transmit flag — set in ISR, handled in main loop
 volatile uint8_t sw2_pressed = 0;
 
-#pragma vector=PORT2_VECTOR
-__interrupt void Port2_ISR(void)
-{
-    if (P2IFG & SW2)
-    {
-        P2IFG &= ~SW2;      // clear interrupt flag
-        sw2_pressed = 1;    // set flag, handled in main loop
-    }
-}
-
-
 #pragma vector=PORT4_VECTOR
-__interrupt void press_button(void){
+__interrupt void press_button(void) {
+    if (P4IFG & SW1) {
+        P4IFG &= ~SW1; 
 
-    // SW1: request 115200 baud
-    if(P4IFG & SW1){
-            P4IFG &= ~SW1; // Clear the interrupt flag
+        if (menu_mode == 0) {
+            menu_mode = current_selection;
+            
+            cal_entry_thumb = last_thumb; 
 
-            // Check the current baud rate and swap it
-            if (serialBaud == SERIAL_BAUD_115200) {
-                pending_baud = SERIAL_BAUD_460800;
-            } else {
-                pending_baud = SERIAL_BAUD_115200;
-            }
-
-            baud_change_pending = 1;
         }
-    }
-
-    
-
-// Call this from the main loop — applies any pending baud rate change safely
-void Serial_BaudProcess(void)
-{
-    if (baud_change_pending)
-    {
-        baud_change_pending = 0;
-        Serial_setBaud(pending_baud);
-
-        if (pending_baud == SERIAL_BAUD_115200) {
-            memcpy(baud_display_line, " 115200Hz ", 10);
-        } else {
-            memcpy(baud_display_line, " 460800Hz ", 10);
+        
+        else if(menu_mode == 1) {
+        // --- EXITING MISSION MODE ---
+        menu_mode = 0;             
+        robot_state = STATE_IDLE; 
+        turn_off_all();
         }
-
-        baud_display_active = 1; // Locks the display on
-        update_display = 1;
+        
+        else if (menu_mode == 2) {
+            WHITE = (last_left + last_right) / 2; 
+        }
     }
 }
+
+
+#pragma vector=PORT2_VECTOR
+__interrupt void Port2_ISR(void) {
+    if (P2IFG & SW2) {
+        P2IFG &= ~SW2; 
+
+        if (menu_mode == 2) {
+            BLACK = (last_left + last_right) / 2;
+        }
+    }
+}
+
+
 
 #pragma vector=TIMER0_B0_VECTOR
 __interrupt void Timer_B0_ISR(void) {
@@ -104,7 +80,6 @@ __interrupt void Timer_B0_ISR(void) {
     P2OUT |= IR_LED;
     Time_Sequence++;
 tick_flag = 1;
-   Serial_TimerTick();
     if (system_running) {
         tick_counter++;
         if (tick_counter >= 5) {
