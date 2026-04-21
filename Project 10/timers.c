@@ -57,7 +57,7 @@ void Init_Timer_B1(void) {
     TB1EX0 = TBIDEX__8;
     TB1CTL |= TBCLR;
 
-    TB1CCR0 = 1250;
+    TB1CCR0 = 250;
     TB1CCTL0 |= CCIE;
 
     TB1CCTL0 &= ~CCIFG;

@@ -1,14 +1,13 @@
-#include  "functions.h"
-#include  "msp430.h"
-#include  "macros.h"
-#include  "ports.h"
+#include "functions.h"
+#include "msp430.h"
+#include "macros.h"
+#include "ports.h"
 #include "timers.h"
 #include "LCD.h"
 #include "motors.h"
 #include "esp.h"
 
 extern volatile int condition;
-extern volatile int start_timed_turn;
 volatile int system_running = 0;
 volatile int start_countdown = 0;
 volatile int timer_minutes = 0;
@@ -21,7 +20,8 @@ volatile int sw1_mode = 0;
 volatile unsigned char baud_display_active = 0;
 char baud_display_line[11] = "          ";
 volatile unsigned int baud_timer = 0;
-
+extern unsigned int DAC_data;
+extern volatile unsigned int drive_timer;
 extern volatile int menu_mode;
 extern volatile int current_selection;
 extern volatile int cal_entry_thumb;
@@ -30,6 +30,7 @@ extern volatile int last_left;
 extern volatile int last_right;
 extern volatile int WHITE;
 extern volatile int BLACK;
+extern volatile unsigned char update_display;
 
 volatile unsigned char baud_change_pending = 0;
 
@@ -85,16 +86,29 @@ tick_flag = 1;
         if (tick_counter >= 5) {
             tick_counter = 0;
             timer_seconds++;
-            if (timer_seconds >= 60) {
-                timer_seconds = 0;
-                timer_minutes++;
-            }
         }
     }
 
     update_display = 1;
     TB0CCR0 += TB0CCR0_INTERVAL;
     TB0CCTL0 &= ~CCIFG;
+}
+
+#pragma vector=TIMER0_B1_VECTOR
+__interrupt void Timer_B0_Group_ISR(void) {
+    switch(__even_in_range(TB0IV, 14)) {
+        case 14: 
+            DAC_data = DAC_data - 100;
+            SAC3DAT = DAC_data; 
+            if(DAC_data <= DAC_Limit) {
+                DAC_data = DAC_Adjust;
+                SAC3DAT = DAC_data;
+                TB0CTL &= ~TBIE; 
+                P1OUT &= ~RED_LED;
+            }
+            break;
+        default: break;
+    }
 }
 
 
@@ -105,9 +119,10 @@ __interrupt void Timer_B1_ISR(void) {
     ADCCTL0 |= ADCSC;
 
     pid_ready_flag = 1;
-
-    TB1CCR0 += 1250;
+    drive_timer++;
+    TB1CCR0 += 250;
     TB1CCTL0 &= ~CCIFG;
+    
 }
 
 void enable_interrupts(void){

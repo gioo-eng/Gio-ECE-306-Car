@@ -19,7 +19,6 @@
   volatile int left_ir = 0;
   volatile int right_ir = 0;
   volatile int condition = OFF;
-  volatile int start_timed_turn = 0;
 
 void init_adc(void) {
 

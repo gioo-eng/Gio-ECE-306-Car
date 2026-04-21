@@ -33,9 +33,10 @@ extern volatile unsigned int robot_state;
 // --- Variables for IoT Serial Processing ---
 char uart_rx_buffer[BUF_LEN];
 ESPCommandEvent current_event;
-
+void Init_DAC(void);
 
 void main(void) {
+    WDTCTL = WDTPW | WDTHOLD; 
     PM5CTL0 &= ~LOCKLPM5;
 
     Init_Ports();
@@ -44,7 +45,7 @@ void main(void) {
     Init_Timers();
     Init_LCD();
     init_adc();
-    
+    Init_DAC();
     uart_init();
     __enable_interrupt();
     ESP_Init();
@@ -67,25 +68,18 @@ void main(void) {
     while (ALWAYS) {
         check_motor_safety();
 
-        // --- NEW: ESP SERIAL PROCESSING ---
+       // --- NEW: ESP SERIAL PROCESSING ---
         // 1. Drain the ring buffer and process any complete frames
         if (uart_read_frame(uart_rx_buffer)) {
-            // Check for WiFi/IP connection status
             ESP_ProcessStartup(uart_rx_buffer);
-            
-            // Look for ^PIN commands and queue them up
             ESP_EnqueueFromFrame(uart_rx_buffer);
         }
 
-
-       if (!system_running || robot_state == STATE_IDLE) {
-            if (ESP_DequeueCommand(&current_event)) {
-                if (current_event.valid) {
-                    
-                    // Call the new function we just made in motors.c!
-                    execute_iot_command(&current_event);
-                    current_event.valid = 0; 
-                }
+        // 2. Process Commands IMMEDIATELY (Removed the lockout!)
+        if (ESP_DequeueCommand(&current_event)) {
+            if (current_event.valid) {
+                execute_iot_command(&current_event);
+                current_event.valid = 0; 
             }
         }
 

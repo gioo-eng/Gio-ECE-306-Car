@@ -6,19 +6,21 @@
 
 extern volatile int left_ir;
 extern volatile int right_ir;
-
-
+volatile unsigned int drive_timer = 0; 
+static int in_recovery = 0; 
+static int spin_direction = 0; // 0 = spin left, 1 = spin right
+    
 #define TARGET 195.0
 
 //original 700 and 250
 // --- PID Constants ---
-float Kp = 1400.0, Kd = 2000.0;
+float Kp = 4800.0, Kd = 1200.0;
 
 // --- PID Variables ---
 float error = 0, previousError = 0, proportional = 0, derivative = 0;
 
-#define BASE_SPEED 22000
-#define MAX_SPEED 34000
+#define BASE_SPEED 20000
+#define MAX_SPEED 40000
 #define MIN_SPEED 12000
 
 
@@ -29,21 +31,58 @@ void Init_PID(void) {
 
 
 void Run_PID(void) {
+
+
+    
     float physical_left = (float)left_ir;
     float physical_right = (float)right_ir;
 
-    if (physical_left < 100.0 && physical_right < 100.0) {
-        // --- THE FIX ---
-        // Force a massive, constant error depending on the last known direction.
-        // This instantly pins one wheel to MAX_SPEED and the other to 0.
-        if (previousError > 0) {
-            error = 500.0;  // Lost it to the right
+
+
+
+    
+    // =========================================================
+    // 1. ARE WE CURRENTLY IN RECOVERY MODE?
+    // =========================================================
+    if (in_recovery == 1) {
+        // The condition to EXIT recovery: BOTH sensors must be > 185
+        if (physical_left > 185.0 && physical_right > 185.0) {
+            in_recovery = 0; // Line found! Exit recovery mode.
         } else {
-            error = -500.0; // Lost it to the left
+            // Still searching for the line. Keep one motor OFF and one at MAX.
+            if (spin_direction == 0) {
+                LEFT_FORWARD_SPEED = 0;
+                RIGHT_FORWARD_SPEED = MAX_SPEED;
+            } else {
+                LEFT_FORWARD_SPEED = MAX_SPEED;
+                RIGHT_FORWARD_SPEED = 0;
+            }
+            return; // Exit immediately so normal PID math doesn't run
         }
-    } else {
-        error = physical_left - physical_right;
     }
+
+    // =========================================================
+    // 2. DO WE NEED TO ENTER RECOVERY MODE?
+    // =========================================================
+    // The condition to ENTER recovery: EITHER sensor drops below 130
+    if (physical_left < 130.0 || physical_right < 130.0) {
+        in_recovery = 1; // Lock the robot into recovery state
+        
+        // Decide which way to spin based on the last known position (previousError)
+        if (previousError >= 0) {
+            spin_direction = 0; // Spin left
+            LEFT_FORWARD_SPEED = 0;
+            RIGHT_FORWARD_SPEED = MAX_SPEED;
+        } else {
+            spin_direction = 1; // Spin right
+            LEFT_FORWARD_SPEED = MAX_SPEED;
+            RIGHT_FORWARD_SPEED = 0;
+        }
+        
+        return; // Exit immediately so normal PID math doesn't run
+    }
+        error = physical_left - physical_right;
+    
 
     proportional = error;
     derivative = error - previousError;

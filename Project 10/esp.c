@@ -11,6 +11,13 @@ extern volatile int system_running;
 extern volatile int timer_seconds;
 extern volatile int menu_mode;
 
+extern volatile int cal_entry_thumb;
+extern volatile int last_thumb;
+extern volatile int countdown_start_time;
+volatile int iot_course_started = 0;
+volatile int iot_pad_state = 0;     
+extern volatile unsigned int robot_state; 
+
 
 const ESPCommand esp_commands[ESP_CMD_COUNT] =
 {
@@ -158,8 +165,10 @@ uint8_t ESP_ParseIPDFrame(const char *frame, ESPCommandEvent *out)
         case 'R':  out->direction = ESP_DIR_RIGHT;    break;
         case 'L':  out->direction = ESP_DIR_LEFT;     break;
         case 'T':  out->direction = ESP_DIR_TURN;     break;
-        case 'A':  out->direction = ESP_DIR_ALIGN;    break;
-        case 'P':  out->direction = ESP_DIR_PID;   break;
+        case 'P':  out->direction = ESP_DIR_PID;      break;
+        case 'E':  out->direction = ESP_DIR_EXIT;     break;
+        case 'I':  out->direction = ESP_DIR_INCREMENT; break; 
+
         default:   return 0U;
     }
     p++;
@@ -181,12 +190,20 @@ uint8_t ESP_ParseIPDFrame(const char *frame, ESPCommandEvent *out)
 void execute_iot_command(const ESPCommandEvent *evt) {
     if (!evt || !evt->valid) { return; }
 
-    // Always ensure motors are off before changing directions
-    turn_off_all(); 
+if (iot_course_started == 0) {
+        iot_course_started = 1;
+        timer_seconds = 0;
+        robot_state = STATE_STOP;
+        system_running = 1; 
+        menu_mode = 3;      
+        update_display = 1; 
+    }
+
+    turn_off_all();   
 
     switch (evt->direction) {
         case ESP_DIR_FORWARD:
-            LEFT_FORWARD_SPEED  = SLOW_L;
+            LEFT_FORWARD_SPEED  = 27000;
             RIGHT_FORWARD_SPEED = SLOW_R;
             ms_delay(evt->time_units * 1000);
             break;
@@ -210,24 +227,43 @@ void execute_iot_command(const ESPCommandEvent *evt) {
             break;
 
         case ESP_DIR_TURN:
-            LEFT_FORWARD_SPEED  = TURN_L;
-            RIGHT_FORWARD_SPEED = TURN_R;
-            ms_delay(evt->time_units * 1000);
-            break;
+    // 1. Move forward
+    LEFT_FORWARD_SPEED  = 30000;
+    RIGHT_FORWARD_SPEED = 31000;
+    ms_delay(6400);
+    turn_off_all();
 
-         case ESP_DIR_ALIGN:
-            LEFT_FORWARD_SPEED  = ALIGN_L;
-            RIGHT_FORWARD_SPEED = ALIGN_R;
-            ms_delay(evt->time_units * 1000);
-            break;
+    LEFT_FORWARD_SPEED = 15000;
+    RIGHT_FORWARD_SPEED = 43000;
+    ms_delay(4600);
+    turn_off_all();
+
+    
+    break;
         
         case ESP_DIR_PID:
              system_running = 1; 
              robot_state = STATE_COUNTDOWN;
-             timer_seconds = 0;
+             countdown_start_time = timer_seconds;
              menu_mode = 1;
+             cal_entry_thumb = last_thumb;
             break;
 
+          case ESP_DIR_EXIT:
+             system_running = 1; 
+             robot_state = STATE_EXIT;
+             menu_mode = 1;
+             cal_entry_thumb = last_thumb;
+            break;
+
+          case ESP_DIR_INCREMENT:
+            iot_pad_state = evt->time_units;
+            menu_mode = 3;                   
+            cal_entry_thumb = last_thumb;   
+            update_display = 1;           
+            break;
+
+            
         default:
             break;
     }

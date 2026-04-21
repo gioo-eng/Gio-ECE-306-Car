@@ -141,10 +141,9 @@ P1DIR &= ~UCA0TXD;
  P3OUT &= ~SMCLK; // not used currently
  P3DIR &= ~SMCLK; // not used currently
 
- P3SEL0 |= DAC_CNTL; //selection from schematic
- P3SEL1 |= DAC_CNTL; //selection from schematic
- P3OUT &= ~DAC_CNTL; // not used currently
- P3DIR &= ~DAC_CNTL; // not used currently
+ P3SELC |= DAC_CNTL; //selection from schematic
+ P3OUT  |= DAC_CNTL; // not used currently
+ P3DIR  |= DAC_CNTL; // not used currently
 
  P3SEL0 |= IOT_LINK_GRN; //selection from schematic
  P3SEL1 |= IOT_LINK_GRN; //selection from schematic
@@ -222,7 +221,6 @@ P1DIR &= ~UCA0TXD;
 
  P5SEL0 |= V_DAC; // the selection from schematic
  P5SEL1 |= V_DAC; // the selection from schematic
- P5OUT &= ~V_DAC; // not used currently
  P5DIR &= ~V_DAC; // not used currently
 
  P5SEL0 |= V_3_3; // the selection from schematic

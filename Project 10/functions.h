@@ -49,9 +49,12 @@ extern volatile unsigned int robot_state;
 #define STATE_IDLE           0
 #define STATE_COUNTDOWN      1
 #define STATE_DRIVE_TO_LINE  2
-#define STATE_EXECUTE_TURN   3
-#define STATE_LINE_FOLLOW    4
-#define STATE_FORWARD_BURST 5
+#define STATE_INTERCEPT      3
+#define STATE_EXECUTE_TURN   4
+#define STATE_LINE_FOLLOW    5
+#define STATE_EXIT           6
+#define STATE_STOP           7
+
 
 // LED Configurations
 void Init_LEDs(void);

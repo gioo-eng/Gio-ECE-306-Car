@@ -29,6 +29,14 @@ void Display_Process(void);
 void Init_LEDs(void);
 void Carlson_StateMachine(void);
 
+// dac controls 
+#define DAC_Begin (2725)
+// #define DAC_Limit (1500)
+//#define DAC_Adjust (1505)
+#define DAC_Limit (1745)  // ~3.62v
+#define DAC_Adjust (1750) // ~3.60v
+
+
   // Global Variables
 volatile char slow_input_down;
 extern char display_line[4][11];

@@ -21,25 +21,37 @@ extern volatile int pid_ready_flag;
 extern unsigned int time_change; 
 extern volatile unsigned char update_display; 
 extern volatile int BLACK;
+extern volatile int thumb;
+volatile unsigned int pid_start_time = 0;
+volatile int is_circle = 0;
+volatile int countdown_start_time = 0;
+void Update_Project_Display(int left_val, int right_val, int thumb);
 
 void Run_Mission_Machine(void) {
     switch (robot_state) {
         case STATE_COUNTDOWN:
             turn_off_all();
-            if (timer_seconds >= 2) {
-                robot_state = STATE_DRIVE_TO_LINE;
+        if ((timer_seconds - countdown_start_time) >= 2) {        
+                    robot_state = STATE_DRIVE_TO_LINE;
             }
             break;
 
         case STATE_DRIVE_TO_LINE:
-            LEFT_FORWARD_SPEED  = SLOW_L;
+            LEFT_FORWARD_SPEED  = 27000;
             RIGHT_FORWARD_SPEED = SLOW_R;
             if (left_ir > (BLACK - 20) && right_ir > (BLACK - 20)) {
                 turn_off_all();
-                start_timed_turn = 1;
                 update_display = 1;
-                robot_state = STATE_EXECUTE_TURN;
+                robot_state = STATE_INTERCEPT;
+
             }
+            break;
+
+        case STATE_INTERCEPT:
+            update_display = 1;
+            ms_delay(5000);
+            turn_off_all();
+            robot_state = STATE_EXECUTE_TURN;
             break;
 
         case STATE_EXECUTE_TURN:
@@ -49,25 +61,33 @@ void Run_Mission_Machine(void) {
             RIGHT_REVERSE_SPEED = WHEEL_OFF;
             ms_delay(200);
             turn_off_all();
-            RIGHT_FORWARD_SPEED = WHEEL_OFF;
+          
+          RIGHT_FORWARD_SPEED = WHEEL_OFF;
             RIGHT_REVERSE_SPEED = t_R;
             LEFT_FORWARD_SPEED  = t_L;
             LEFT_REVERSE_SPEED  = WHEEL_OFF;
-            ms_delay(600);
+            
+            while (left_ir <= 185 || right_ir <= 185) {
+            }
+            
             turn_off_all();
-            ms_delay(1200);
-            start_timed_turn = 0;
+            ms_delay(4000);
             Init_PID();
-            timer_seconds = 0;
+            pid_start_time = timer_seconds; 
+            is_circle = 0;
             robot_state = STATE_LINE_FOLLOW;
             break;
 
         case STATE_LINE_FOLLOW:
             if (time_change == 1) {
-                if (timer_seconds >= 10) {
-                    turn_off_all();
-                    timer_seconds = 0;
-                    robot_state = STATE_FORWARD_BURST;
+               if (is_circle == 0 && (timer_seconds - pid_start_time) >= 15) {
+                    is_circle = 1;     
+                    update_display = 1; 
+                }
+               
+            if ((timer_seconds - pid_start_time) >= 100) {         
+                           turn_off_all();
+                    robot_state = STATE_EXIT;
                     break;
                 }
             }
@@ -77,26 +97,34 @@ void Run_Mission_Machine(void) {
             }
             break;
 
-        case STATE_FORWARD_BURST:
+        case STATE_EXIT:
+            Update_Project_Display(left_ir, right_ir, thumb);
+            update_display = 1; 
+            Display_Process();
+            turn_off_all();
             RIGHT_FORWARD_SPEED = WHEEL_OFF;
+            LEFT_REVERSE_SPEED  = WHEEL_OFF;
             RIGHT_REVERSE_SPEED = t_R;
             LEFT_FORWARD_SPEED  = t_L;
-            LEFT_REVERSE_SPEED  = WHEEL_OFF;
-            ms_delay(600);
+            ms_delay(800);
             turn_off_all();
+            ms_delay(4000);
             LEFT_FORWARD_SPEED  = SLOW_R;
             RIGHT_FORWARD_SPEED = SLOW_L;
             LEFT_REVERSE_SPEED  = WHEEL_OFF;
             RIGHT_REVERSE_SPEED = WHEEL_OFF;
-            ms_delay(2400);
+            ms_delay(1600);
             turn_off_all();
-            robot_state = STATE_IDLE;
-            system_running = 0; // Release the system to process the next IoT command
+            robot_state = STATE_STOP;    
+            break;
+        
+        case STATE_STOP:
+            turn_off_all();
             break;
 
         default:
             turn_off_all();
-            robot_state = STATE_IDLE;
+            robot_state = STATE_STOP;
             system_running = 0; // Release the system
             break;
     }
