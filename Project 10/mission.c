@@ -21,6 +21,7 @@ extern volatile int pid_ready_flag;
 extern unsigned int time_change; 
 extern volatile unsigned char update_display; 
 extern volatile int BLACK;
+extern volatile int WHITE;
 extern volatile int thumb;
 volatile unsigned int pid_start_time = 0;
 volatile int is_circle = 0;
@@ -39,17 +40,22 @@ void Run_Mission_Machine(void) {
         case STATE_DRIVE_TO_LINE:
             LEFT_FORWARD_SPEED  = 27000;
             RIGHT_FORWARD_SPEED = SLOW_R;
-            if (left_ir > (BLACK - 20) && right_ir > (BLACK - 20)) {
-                turn_off_all();
-                update_display = 1;
-                robot_state = STATE_INTERCEPT;
+            LEFT_REVERSE_SPEED  = WHEEL_OFF;
+            RIGHT_REVERSE_SPEED = WHEEL_OFF;
+            while (left_ir >= (WHITE + 15) || right_ir >=(WHITE + 15)) {
 
             }
+while (left_ir <= (BLACK - 20) || right_ir <= (BLACK - 20)) {
+    
+            }                
+            turn_off_all();
+            update_display = 1;
+            robot_state = STATE_INTERCEPT;
             break;
 
         case STATE_INTERCEPT:
             update_display = 1;
-            ms_delay(5000);
+            ms_delay(7000);
             turn_off_all();
             robot_state = STATE_EXECUTE_TURN;
             break;
@@ -62,7 +68,7 @@ void Run_Mission_Machine(void) {
             ms_delay(200);
             turn_off_all();
           
-          RIGHT_FORWARD_SPEED = WHEEL_OFF;
+            RIGHT_FORWARD_SPEED = WHEEL_OFF;
             RIGHT_REVERSE_SPEED = t_R;
             LEFT_FORWARD_SPEED  = t_L;
             LEFT_REVERSE_SPEED  = WHEEL_OFF;
@@ -71,7 +77,7 @@ void Run_Mission_Machine(void) {
             }
             
             turn_off_all();
-            ms_delay(4000);
+            ms_delay(7000);
             Init_PID();
             pid_start_time = timer_seconds; 
             is_circle = 0;
@@ -108,12 +114,12 @@ void Run_Mission_Machine(void) {
             LEFT_FORWARD_SPEED  = t_L;
             ms_delay(800);
             turn_off_all();
-            ms_delay(4000);
+            ms_delay(7000);
             LEFT_FORWARD_SPEED  = SLOW_R;
             RIGHT_FORWARD_SPEED = SLOW_L;
             LEFT_REVERSE_SPEED  = WHEEL_OFF;
             RIGHT_REVERSE_SPEED = WHEEL_OFF;
-            ms_delay(1600);
+            ms_delay(2000);
             turn_off_all();
             robot_state = STATE_STOP;    
             break;

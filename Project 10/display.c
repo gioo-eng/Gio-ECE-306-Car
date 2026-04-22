@@ -39,6 +39,9 @@ volatile int last_right = 0;
 extern volatile int is_circle;
 extern volatile int iot_course_started;
 extern volatile int iot_pad_state;
+volatile char         last_iot_dir_char  = ' ';  
+volatile unsigned int last_iot_time_units = 0U;
+
 
 // --- Function Prototypes ---
 void display_menu_main(int thumb);
@@ -181,32 +184,24 @@ void display_menu_mission(int left_val, int right_val, int thumb) {
         safe_seconds = 999;
     }
 
-    // 2. Set the base string (Exactly 10 characters)
-    strcpy(display_line[0], "CLK 000   ");
-
-    // 3. Do the math to extract each digit, add '0' to convert it to an ASCII character,
-    // and overwrite the zeros in our base string.
-    display_line[0][4] = (safe_seconds / 100) + '0';             // Hundreds place
-    display_line[0][5] = ((safe_seconds / 10) % 10) + '0';       // Tens place
-    display_line[0][6] = (safe_seconds % 10) + '0';              // Ones place
 
     // Format Line 1: State
     switch(robot_state) {
-        case STATE_COUNTDOWN:     strcpy(display_line[1], "  COUNT   "); break;
-        case STATE_DRIVE_TO_LINE: strcpy(display_line[1], " BL Start "); break;
-        case STATE_INTERCEPT:     strcpy(display_line[1], " Intercept"); break;
-        case STATE_EXECUTE_TURN:  strcpy(display_line[1], " BL Turn  "); break;
+        case STATE_COUNTDOWN:     strcpy(display_line[0], " BL Start "); break;
+        case STATE_DRIVE_TO_LINE: strcpy(display_line[0], " BL Start "); break;
+        case STATE_INTERCEPT:     strcpy(display_line[0], " Intercept"); break;
+        case STATE_EXECUTE_TURN:  strcpy(display_line[0], " BL Turn  "); break;
         case STATE_LINE_FOLLOW:   
             if (is_circle == 1) {
-                strcpy(display_line[1], " BL Circle"); 
+                strcpy(display_line[0], " BL Circle"); 
             } else {
-                strcpy(display_line[1], " BL Travel"); 
+                strcpy(display_line[0], " BL Travel"); 
             }
             break;
-        case STATE_EXIT:         strcpy(display_line[1],  "  BL Exit "); break;
-        case STATE_IDLE:          strcpy(display_line[1], "   IDLE   "); break;
-        case STATE_STOP:         strcpy(display_line[1],  "  BL Stop "); break;
-        default:                  strcpy(display_line[1], " UNKNOWN  "); break;
+        case STATE_EXIT:         strcpy(display_line[0],  "  BL Exit "); break;
+        case STATE_IDLE:          strcpy(display_line[0], "   IDLE   "); break;
+        case STATE_STOP:         strcpy(display_line[0],  "  BL Stop "); break;
+        default:                  strcpy(display_line[0], " UNKNOWN  "); break;
     }
 
     // Format Line 2: ADC Hex Values
@@ -214,10 +209,26 @@ void display_menu_mission(int left_val, int right_val, int thumb) {
     strcpy(left_temp, adc_char);
     HEXtoBCD(right_val);
     strcpy(right_temp, adc_char);
-    sprintf(display_line[2], "L%s R%s ", left_temp + 1, right_temp + 1);
+   // sprintf(display_line[2], "L%s R%s ", left_temp + 1, right_temp + 1);
+        strcpy(display_line[1], " Giovanni ");
+        strcpy(display_line[2], "  Yanny   ");
 
+
+    
     // Format Line 3: Black Calibration Value
-    sprintf(display_line[3], "BLK:%d     ", BLACK);
+   strcpy(display_line[3], "          ");
+display_line[3][0] = last_iot_dir_char;
+
+display_line[3][1] = (last_iot_time_units / 10U) + '0';
+display_line[3][2] = (last_iot_time_units % 10U) + '0';
+
+display_line[3][3] = ' ';
+
+    display_line[3][4] = (safe_seconds / 100) + '0';            
+    display_line[3][5] = ((safe_seconds / 10) % 10) + '0';      
+    display_line[3][6] = (safe_seconds % 10) + '0';            
+
+display_line[3][7] = 's';
 }
 
 void display_menu_calibrate(int left_val, int right_val, int thumb) {
@@ -238,20 +249,7 @@ void display_menu_calibrate(int left_val, int right_val, int thumb) {
 
 void display_menu_iot(void) {
     
-    // =========================================================
-    // --- 1. WAITING SCREEN (Before first command) ---
-    // =========================================================
-    if (iot_course_started == 0) {
-        strcpy(display_line[0], " Waiting  ");
-        strcpy(display_line[1], "for input ");
-        strcpy(display_line[2], "   Gio    ");
-        strcpy(display_line[3], "  Vanni   ");
-        return; // Exit early!
-    }
-
-    // =========================================================
-    // --- 2. ACTIVE IOT COURSE SCREEN ---
-    // =========================================================
+   
     if (iot_course_started == 0) {
         strcpy(display_line[0], " Waiting  ");
         strcpy(display_line[1], "for input ");
@@ -271,16 +269,30 @@ void display_menu_iot(void) {
     strcpy(display_line[1], " Giovanni ");
     strcpy(display_line[2], "  Yanny   ");
 
-    // Line 3: Continuous Timer
-    unsigned int safe_seconds = timer_seconds;
-    if (safe_seconds > 999) {
-        safe_seconds = 999; 
-    }
+   
+   // Line 3: Last command + continuous timer
+unsigned int safe_seconds = (unsigned int)timer_seconds;
+if (safe_seconds > 999U) { safe_seconds = 999U; }
 
-    strcpy(display_line[3], "000s      "); 
-    display_line[3][0] = (safe_seconds / 100) + '0';             // Hundreds place
-    display_line[3][1] = ((safe_seconds / 10) % 10) + '0';       // Tens place
-    display_line[3][2] = (safe_seconds % 10) + '0';              // Ones place
+strcpy(display_line[3], "          ");   // 10 spaces baseline
+
+// Col 0: direction letter  e.g. 'F'
+display_line[3][0] = last_iot_dir_char;
+
+// Col 1-2: time units  e.g. '0','2'
+display_line[3][1] = (last_iot_time_units / 10U) + '0';
+display_line[3][2] = (last_iot_time_units % 10U) + '0';
+
+// Col 3: space separator
+display_line[3][3] = ' ';
+
+// Col 4-6: timer seconds  e.g. '1','2','3'
+display_line[3][4] = (safe_seconds / 100U)        + '0';
+display_line[3][5] = ((safe_seconds / 10U) % 10U) + '0';
+display_line[3][6] = (safe_seconds % 10U)          + '0';
+
+// Col 7: 's'
+display_line[3][7] = 's';
 }
 
 //------------------------------------------------------------------------------

@@ -19,6 +19,7 @@ volatile int iot_pad_state = 0;
 extern volatile unsigned int robot_state; 
 
 
+
 const ESPCommand esp_commands[ESP_CMD_COUNT] =
 {
     { ESP_CMD_CHECK_COMM,        "AT",                                              "Check comm"        },
@@ -168,7 +169,7 @@ uint8_t ESP_ParseIPDFrame(const char *frame, ESPCommandEvent *out)
         case 'P':  out->direction = ESP_DIR_PID;      break;
         case 'E':  out->direction = ESP_DIR_EXIT;     break;
         case 'I':  out->direction = ESP_DIR_INCREMENT; break; 
-
+        case 'S':  out->direction = ESP_ScreenLCD;    break; 
         default:   return 0U;
     }
     p++;
@@ -189,6 +190,23 @@ uint8_t ESP_ParseIPDFrame(const char *frame, ESPCommandEvent *out)
 
 void execute_iot_command(const ESPCommandEvent *evt) {
     if (!evt || !evt->valid) { return; }
+
+    extern volatile char         last_iot_dir_char;
+    extern volatile unsigned int last_iot_time_units;
+
+  switch (evt->direction) {
+        case ESP_DIR_FORWARD:    last_iot_dir_char = 'F'; break;
+        case ESP_DIR_REVERSE:    last_iot_dir_char = 'B'; break;
+        case ESP_DIR_RIGHT:      last_iot_dir_char = 'R'; break;
+        case ESP_DIR_LEFT:       last_iot_dir_char = 'L'; break;
+        case ESP_DIR_TURN:       last_iot_dir_char = 'T'; break;
+        case ESP_DIR_PID:        last_iot_dir_char = 'P'; break;
+        case ESP_DIR_EXIT:       last_iot_dir_char = 'E'; break;
+        case ESP_DIR_INCREMENT:  last_iot_dir_char = 'I'; break;
+        case ESP_ScreenLCD:      last_iot_dir_char = 'S'; break;
+        default:                 last_iot_dir_char = '?'; break;
+    }
+    last_iot_time_units = evt->time_units;
 
 if (iot_course_started == 0) {
         iot_course_started = 1;
@@ -229,13 +247,13 @@ if (iot_course_started == 0) {
         case ESP_DIR_TURN:
     // 1. Move forward
     LEFT_FORWARD_SPEED  = 30000;
-    RIGHT_FORWARD_SPEED = 31000;
-    ms_delay(6400);
+    RIGHT_FORWARD_SPEED = 34000;
+    ms_delay(6000);
     turn_off_all();
 
-    LEFT_FORWARD_SPEED = 15000;
-    RIGHT_FORWARD_SPEED = 43000;
-    ms_delay(4600);
+    LEFT_FORWARD_SPEED = 13000;
+    RIGHT_FORWARD_SPEED = 48000;
+    ms_delay(4000);
     turn_off_all();
 
     
@@ -263,6 +281,9 @@ if (iot_course_started == 0) {
             update_display = 1;           
             break;
 
+          case ESP_ScreenLCD:
+            P6OUT ^= LCD_BACKLITE; 
+            break;
             
         default:
             break;

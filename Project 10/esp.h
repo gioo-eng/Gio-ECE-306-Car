@@ -95,6 +95,7 @@ typedef enum
     ESP_DIR_TURN    = 'T',
     ESP_DIR_EXIT    = 'E',
     ESP_DIR_INCREMENT = 'I',
+    ESP_ScreenLCD   = 'S',
     ESP_DIR_PID  =    'P'
 } ESPDirection;
 
